@@ -1,0 +1,220 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://npmcdn.com/@turf/turf/turf.min.js"></script>
+<script src=https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.0.2/mapbox-gl-directions.js></script>
+<link rel="stylesheet" href=https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.0.2/mapbox-gl-directions.css type="text/css" />
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/mapbox-polyline/1.1.1/polyline.js></script> 
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@200&display=swap" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.0/mapbox-gl-directions.js"></script> 
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.0/mapbox-gl-directions.css" type="text/css"> 
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v2.9.2/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v2.9.2/mapbox-gl.css' rel='stylesheet' />
+    <title>Shambhala</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'api/main.css' %}" />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <header class="bg-[#cc0000] text-stone-200 body-font">
+      <div
+        class="container mx-auto flex flex-wrap p-5 flex-col md:flex-row items-center"
+      >
+        <nav class="flex lg:w-2/5 flex-wrap items-center text-base md:ml-auto">
+
+          <a href="{% url 'WeatherData' %}" class="mr-5 hover:text-gray-900">Weather</a>
+          <a href="{% url 'reviews' %}" class="mr-5 hover:text-gray-900">Reviews</a>
+          <a href="{% url 'contactus' %}" class="hover:text-gray-900">Contact Us</a>
+        </nav>
+        <a
+          class="flex order-first lg:order-none lg:w-1/5 title-font font-medium items-center text-gray-900 lg:items-center lg:justify-center mb-4 md:mb-0"
+        >
+          <img src="{% static 'api/logo.png' %}" alt="SHAMBHALA" />
+        </a>
+        <div class="lg:w-2/5 inline-flex lg:justify-end ml-5 lg:ml-0">
+          <a href="{% url 'myprofile' %}">
+          <button
+            class="inline-flex items-center hover:bg-black rounded hover:text-stone-200 border-0 py-1 px-3 focus:outline-none bg-gray-200 text-[#cc0000] mt-4 md:mt-0"
+          >
+            Profile
+            <svg
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              class="w-4 h-4 ml-1"
+              viewBox="0 0 24 24"
+            >
+              <path d="M5 12h14M12 5l7 7-7 7"></path>
+            </svg>
+          </button>
+        </a>
+        </div>
+      </div>
+    </header>
+
+    <div id="map" style="width:100vw;height:100vh;position:relative;">
+    </div>
+   
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoidmluYXlhazEyMDAiLCJhIjoiY2xhOXo3YXVnMDJ2azNybzh3ODBpanF3ayJ9.3wPa3e8CFCAuj0lU3ZJv9A';
+        var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [75.556284, 31.345562],
+        zoom: 9, 
+        });
+
+        map.addControl(
+        new MapboxDirections({
+        accessToken: mapboxgl.accessToken
+        }),
+        'top-left'
+        ) 
+        
+
+
+
+        async function getRoute(end) {
+
+          
+          const query = await fetch(
+            `https://api.mapbox.com/directions/v5/mapbox/cycling/${start[0]},${start[1]};${end[0]},${end[1]}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
+            { method: 'GET' }
+          );
+          const json = await query.json();
+          const data = json.routes[0];
+          const route = data.geometry.coordinates;
+          const geojson = {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: route
+            }
+          };
+
+          //document.getElementById("coords").innerHTML=geojson;
+          // if the route already exists on the map, we'll reset it using setData
+          if (map.getSource('route')) {
+            map.getSource('route').setData(geojson);
+          }
+          // otherwise, well make a new request
+          else {
+            map.addLayer({
+              id: 'route',
+              type: 'line',
+              source: {
+                type: 'geojson',
+                data: geojson
+              },
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#3887be',
+                'line-width': 5,
+                'line-opacity': 0.75
+              }
+            });
+          }
+          // add turn instructions here at the end
+        }
+        
+        map.on('load', () => {
+          // make an initial directions request that
+          // starts and ends at the same location
+          getRoute(start);
+          
+        
+          // Add starting point to the map
+          map.addLayer({
+            id: 'point',
+            type: 'circle',
+            source: {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: [
+                  {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                      type: 'Point',
+                      coordinates: start
+                    }
+                  }
+                ]
+              }
+            },
+            paint: {
+              'circle-radius': 10,
+              'circle-color': '#3887be'
+            }
+          });
+          // this is where the code from the next step will go
+        });
+        map.on('click', (event) => {
+          const coords = Object.keys(event.lngLat).map((key) => event.lngLat[key]);
+          const end = {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'Point',
+                  coordinates: coords
+                }
+              }
+            ]
+          };
+          
+          if (map.getLayer('end')) {
+            map.getSource('end').setData(end);
+          } else {
+            map.addLayer({
+              id: 'end',
+              type: 'circle',
+              source: {
+                type: 'geojson',
+                data: {
+                  type: 'FeatureCollection',
+                  features: [
+                    {
+                      type: 'Feature',
+                      properties: {},
+                      geometry: {
+                        type: 'Point',
+                        coordinates: coords
+                      }
+                    }
+                  ]
+                }
+              },
+             //end_coord = JSON.stringify(coords)
+
+              paint: {
+                'circle-radius': 10,
+                'circle-color': '#f30'
+              }
+            });
+
+            //end_coord = JSON.stringify(coords)
+          } 
+          end_coord = JSON.stringify(coords)
+        });
+        
+        
+         </script>
+  </body>
+</html>
